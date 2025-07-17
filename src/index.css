@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* === 모바일 전체 크기 고정 === */
+html,
+body {
+  @apply w-full h-full m-0 p-0 overflow-x-hidden;
+  font-family: "Pretendard", sans-serif;
+  background-color: #fff;
+}
+
+/* 모바일 화면 기준으로 max-width 제한*/
+#root {
+  @apply w-full max-w-sm mx-auto;
+}

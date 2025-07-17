@@ -1,11 +1,23 @@
 import React from "react";
-import Main from "./components/Main";
+import MainFilm from "./components/MainFilm";
+import PlayButton from "./components/PlayButton";
+import Poem from "./components/Poem";
+import WeddingDay from "./components/WeddingDay";
+import Parents from "./components/Parents";
+import Location from "./components/Location";
+import InvitationShare from "./components/InvitationShare";
 
 function App() {
   return (
-    <>
-      <Main />
-    </>
+    <div className="w-screen max-w-[380px] mx-auto relative border border-red-500">
+      <PlayButton />
+      <MainFilm />
+      <Poem />
+      <WeddingDay />
+      <Parents />
+      <Location />
+      <InvitationShare />
+    </div>
   );
 }
 
