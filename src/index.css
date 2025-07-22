@@ -5,7 +5,7 @@
 /* === 모바일 전체 크기 고정 === */
 html,
 body {
-  @apply w-full h-full m-0 p-0 overflow-x-hidden;
+  @apply w-full h-full m-0 p-0;
   font-family: "Pretendard", sans-serif;
   background-color: #fff;
 }

@@ -9,7 +9,7 @@ import InvitationShare from "./components/InvitationShare";
 
 function App() {
   return (
-    <div className="w-screen max-w-[380px] mx-auto relative border border-red-500">
+    <div className="w-screen max-w-[380px] mx-auto relative">
       <PlayButton />
       <MainFilm />
       <Poem />

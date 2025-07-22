@@ -3,6 +3,7 @@ import { Play, Pause } from "lucide-react";
 
 const PlayButton = () => {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -11,45 +12,63 @@ const PlayButton = () => {
     audio.volume = 0.6;
     audioRef.current = audio;
 
-    const handleFirstTouch = () => {
-      audio
-        .play()
-        .then(() => {
-          setIsMusicPlaying(true);
-        })
-        .catch((err) => {
-          console.warn("자동 재생 실패:", err);
-        });
-
-      document.removeEventListener("touchstart", handleFirstTouch);
-    };
-
-    document.addEventListener("touchstart", handleFirstTouch, { once: true });
-
     return () => {
       audio.pause();
       audioRef.current = null;
     };
   }, []);
 
+  useEffect(() => {
+    console.log("effect mounted");
+    window.addEventListener("scroll", () => console.log("SCROLL!"));
+  }, []);
+
+  useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      console.log("I am scrolling!!!");
+      setIsVisible(false);
+
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+
+      scrollTimeout = setTimeout(() => {
+        setIsVisible(true);
+      }, 500);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
+
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
 
     if (isMusicPlaying) {
-      audioRef.current.pause();
+      audio.pause();
       setIsMusicPlaying(false);
     } else {
-      audioRef.current
+      audio
         .play()
-        .then(() => setIsMusicPlaying(true))
+        .then(() => {
+          setIsMusicPlaying(true);
+        })
         .catch((err) => console.warn("수동 재생 실패:", err));
     }
   };
 
   return (
     <div
-      className="sticky top-4 right-0 ml-auto w-7 h-7 bg-black text-white flex items-center justify-center rounded-full cursor-pointer"
       onClick={togglePlay}
+      className={`sticky top-2 right-2 ml-auto w-7 h-7 bg-black text-white flex items-center justify-center rounded-full cursor-pointer transition-opacity duration-500 ease-in-out ${
+        isVisible
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-0 pointer-events-none"
+      }`}
     >
       {isMusicPlaying ? (
         <Pause size={20} fill="currentColor" />
