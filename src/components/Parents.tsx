@@ -6,6 +6,9 @@ const Parents = () => {
   const groomInfo = {
     label: "신랑측",
     borderColor: "border-blue-300",
+    name: "김원필",
+    bank: "신한은행",
+    bankNumber: process.env.REACT_APP_GROOM_BANK as string,
     daddyName: "김용주",
     daddyBank: "신한은행",
     daddyBankNumber: process.env.REACT_APP_GROOM_DAD_BANK as string,
@@ -17,6 +20,9 @@ const Parents = () => {
   const brideInfo = {
     label: "신부측",
     borderColor: "border-red-300",
+    name: "하나래",
+    bank: "KB국민은행",
+    bankNumber: process.env.REACT_APP_BRIDE_BANK as string,
     daddyName: "하승대",
     daddyBank: "NH농협은행",
     daddyBankNumber: process.env.REACT_APP_BRIDE_DAD_BANK as string,
@@ -77,8 +83,25 @@ const Parents = () => {
       </div>
 
       {/* 계좌 정보 */}
-      <div className="mt-3 flex flex-col gap-2 text-base items-center">
-        <div className="flex items-center gap-2">
+      <div className="mt-3 flex flex-col gap-2 text-base">
+        <div className="flex gap-2 justify-between">
+          <span>
+            [{accountInfo.name} / {accountInfo.bank}] {accountInfo.bankNumber}
+          </span>
+          <button
+            onClick={() =>
+              handleCopy(
+                accountInfo.name,
+                accountInfo.bank,
+                accountInfo.bankNumber
+              )
+            }
+            className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+          >
+            복사
+          </button>
+        </div>
+        <div className="flex gap-2 justify-between">
           <span>
             [{accountInfo.daddyName} / {accountInfo.daddyBank}]{" "}
             {accountInfo.daddyBankNumber}
@@ -96,7 +119,7 @@ const Parents = () => {
             복사
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2 justify-between">
           <span>
             [{accountInfo.mommyName} / {accountInfo.mommyBank}]{" "}
             {accountInfo.mommyBankNumber}
