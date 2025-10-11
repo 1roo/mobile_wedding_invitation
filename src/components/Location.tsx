@@ -15,7 +15,7 @@ const Location = () => {
   };
 
   return (
-    <div>
+    <div className="mt-5 mb-10">
       <p className="text-4xl font-medium text-center">Location</p>
       <p className="text-2xl font-normal text-center my-3">
         로얄파크컨벤션 1F 파크홀

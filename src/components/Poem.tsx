@@ -1,6 +1,6 @@
 const Poem = () => {
   return (
-    <div>
+    <div className="my-10">
       <img
         src="/assets/images/flower.png"
         alt="꽃 이미지"

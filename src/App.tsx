@@ -6,6 +6,7 @@ import WeddingDay from "./components/WeddingDay";
 import Parents from "./components/Parents";
 import Location from "./components/Location";
 import InvitationShare from "./components/InvitationShare";
+import Gallery from "./components/Gallery";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <WeddingDay />
       <Parents />
       <Location />
+      <Gallery />
       <InvitationShare />
     </div>
   );
