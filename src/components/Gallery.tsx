@@ -3,7 +3,7 @@ import { useState } from "react";
 const Gallery = () => {
   // 16장 이미지
   const images = Array.from({ length: 16 }, (_, i) => ({
-    src: `/assets/images/gallery/${i + 1}.jpg`,
+    src: `/assets/images/gallery/${i + 1}.JPG`,
     alt: `우리의 순간 ${i + 1}`,
   }));
 
