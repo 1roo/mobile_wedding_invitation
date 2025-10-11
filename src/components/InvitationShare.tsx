@@ -39,8 +39,12 @@ const InvitationShare = () => {
 
   return (
     <>
-      <div className="h-[600px] bg-gradient-to-b from-[#FFFFFF] to-[#282828] text-black mt-10">
-        image
+      <div className="bg-gradient-to-b from-[#FFFFFF] to-[#282828] text-black mt-10">
+        <img
+          src="/assets/images/panorama.png"
+          alt="웨딩필름이미지"
+          className="mx-auto"
+        />
       </div>
       <div className="h-40 bg-[#282828] text-white flex flex-col items-center justify-center">
         <p className="mb-8">당신은 내가 더 좋은 사람이고 싶게 만들어요.</p>
