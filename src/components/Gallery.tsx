@@ -1,39 +1,72 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
+import { GALLERY_IMAGES } from "../data/gallery.generated";
 
-function ImgWithFallback({
-  base,
+function pickRandom<T>(arr: readonly T[], n: number) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, Math.min(n, copy.length));
+}
+
+function swapExt(src: string, ext: string) {
+  return src.replace(/\.(jpe?g|png)$/i, `.${ext}`);
+}
+
+// .avif/.webp가 없거나 실패하면 img(src)로 자연스럽게 fallback
+function Picture({
+  src,
   alt,
   className,
-  ...rest
+  imgClassName,
+  loading,
+  decoding,
+  fetchPriority,
+  draggable,
+  style,
 }: {
-  base: string;
+  src: string;
   alt: string;
   className?: string;
-  [k: string]: any;
+  imgClassName?: string;
+  loading?: "lazy" | "eager";
+  decoding?: "sync" | "async" | "auto";
+  fetchPriority?: "high" | "low" | "auto";
+  draggable?: boolean;
+  style?: React.CSSProperties;
 }) {
-  const candidates = [`${base}.JPG`, `${base}.jpg`];
-  const [idx, setIdx] = useState(0);
+  const avif = swapExt(src, "avif");
+  const webp = swapExt(src, "webp");
 
   return (
-    <img
-      src={candidates[idx]}
-      alt={alt}
-      onError={() => {
-        if (idx < candidates.length - 1) setIdx(idx + 1);
-      }}
-      className={className}
-      {...rest}
-    />
+    <picture className={className} style={style}>
+      <source srcSet={avif} type="image/avif" />
+      <source srcSet={webp} type="image/webp" />
+      <img
+        src={src}
+        alt={alt}
+        loading={loading}
+        decoding={decoding}
+        fetchPriority={fetchPriority}
+        className={imgClassName}
+        draggable={draggable}
+      />
+    </picture>
   );
 }
 
 const Gallery = () => {
-  const images = Array.from({ length: 16 }, (_, i) => ({
-    id: i + 1,
-    base: `/assets/images/gallery/${i + 1}`,
-    alt: `우리의 순간 ${i + 1}`,
-  }));
+  // ✅ 랜덤 15개(3x5)만 고정으로 뽑기 (컴포넌트 마운트 동안 유지)
+  const picked = useMemo(() => {
+    const list = pickRandom(GALLERY_IMAGES, 15);
+    return list.map((src, i) => ({
+      id: i + 1,
+      src,
+      alt: `우리의 순간 ${i + 1}`,
+    }));
+  }, []);
 
   const [isOpen, setIsOpen] = useState(false);
   const [idx, setIdx] = useState<number | null>(null);
@@ -68,7 +101,6 @@ const Gallery = () => {
     setIsDragging(false);
   }, []);
 
-  // 전환 함수: 먼저 "나가기" -> idx 교체 -> "들어오기"
   const goTo = useCallback(
     (nextIndex: number, dir: 1 | -1) => {
       if (isAnimating) return;
@@ -76,7 +108,6 @@ const Gallery = () => {
       setDirection(dir);
       setIsAnimating(true);
 
-      // 타이머 정리(중복 방지)
       if (t1Ref.current) window.clearTimeout(t1Ref.current);
       if (t2Ref.current) window.clearTimeout(t2Ref.current);
 
@@ -96,22 +127,21 @@ const Gallery = () => {
   const prev = useCallback(() => {
     setIdx((p) => {
       const cur = p ?? 0;
-      const nextIndex = (cur - 1 + images.length) % images.length;
+      const nextIndex = (cur - 1 + picked.length) % picked.length;
       goTo(nextIndex, -1);
-      return cur; // 실제 idx 변경은 goTo가 처리
+      return cur;
     });
-  }, [images.length, goTo]);
+  }, [picked.length, goTo]);
 
   const next = useCallback(() => {
     setIdx((p) => {
       const cur = p ?? 0;
-      const nextIndex = (cur + 1) % images.length;
+      const nextIndex = (cur + 1) % picked.length;
       goTo(nextIndex, 1);
       return cur;
     });
-  }, [images.length, goTo]);
+  }, [picked.length, goTo]);
 
-  // 모달 열릴 때 스크롤 잠금 + 키보드 네비
   useEffect(() => {
     if (!isOpen) return;
 
@@ -132,7 +162,6 @@ const Gallery = () => {
     };
   }, [isOpen, closeModal, prev, next]);
 
-  // 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
       if (t1Ref.current) window.clearTimeout(t1Ref.current);
@@ -140,7 +169,6 @@ const Gallery = () => {
     };
   }, []);
 
-  // 스와이프 핸들러들
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startXRef.current = e.clientX;
     setIsDragging(true);
@@ -158,24 +186,18 @@ const Gallery = () => {
   const finishDrag = () => {
     if (!isDragging) return;
 
-    const threshold = 60; // 이 값 이상 움직이면 페이지 넘김
+    const threshold = 60;
     const dx = dragXRef.current;
 
-    // 드래그 끝나면 원위치
     setIsDragging(false);
     setDragX(0);
     dragXRef.current = 0;
     startXRef.current = null;
 
-    // 넘김 판단
-    if (dx > threshold) {
-      prev();
-    } else if (dx < -threshold) {
-      next();
-    }
+    if (dx > threshold) prev();
+    else if (dx < -threshold) next();
   };
 
-  // 애니메이션 오프셋(px)
   const animOffset = isAnimating ? (direction === 1 ? -24 : 24) : 0;
   const opacity = isAnimating ? 0 : 1;
 
@@ -185,21 +207,23 @@ const Gallery = () => {
 
       <div className="flex justify-center">
         <div className="w-full max-w-[420px]">
-          <div className="grid grid-cols-2 gap-3 p-4">
-            {images.map((img, i) => (
+          {/* ✅ 3열로 15개 => 자동으로 5줄 */}
+          <div className="grid grid-cols-3 gap-2 p-4">
+            {picked.map((img, i) => (
               <button
                 key={img.id}
                 onClick={() => openModal(i)}
-                className="relative overflow-hidden rounded-lg shadow-lg transition-transform duration-200 hover:scale-[1.02]"
+                className="relative overflow-hidden rounded-lg shadow-lg transition-transform duration-200 active:scale-[0.99]"
                 aria-label={`${img.alt} 크게 보기`}
               >
                 <div className="pt-[100%]" />
-                <ImgWithFallback
-                  base={img.base}
+                <Picture
+                  src={img.src}
                   alt={img.alt}
                   loading="lazy"
                   decoding="async"
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="absolute inset-0"
+                  imgClassName="h-full w-full object-cover"
                 />
               </button>
             ))}
@@ -228,7 +252,7 @@ const Gallery = () => {
             </button>
           </div>
 
-          {/* 중앙 이미지 + 스와이프 영역 */}
+          {/* 중앙 이미지 + 스와이프 */}
           <div
             className="flex flex-1 items-center justify-center px-4 pb-4"
             onClick={(e) => e.stopPropagation()}
@@ -249,29 +273,29 @@ const Gallery = () => {
                   opacity,
                 }}
               >
-                <ImgWithFallback
-                  base={images[idx].base}
-                  alt={images[idx].alt}
+                <Picture
+                  src={picked[idx].src}
+                  alt={picked[idx].alt}
                   fetchPriority="high"
-                  className="w-auto max-h-[80vh] max-w-full select-none rounded-xl shadow-2xl"
+                  className="block"
+                  imgClassName="w-auto max-h-[80vh] max-w-full select-none rounded-xl shadow-2xl"
                   draggable={false}
                 />
               </div>
             </div>
           </div>
 
-          {/* 하단 컨트롤 (사진 밖) */}
+          {/* 하단 컨트롤 */}
           <div
             className="flex flex-col items-center gap-3 pb-6 pt-2 text-xs text-white/80"
             onClick={(e) => e.stopPropagation()}
           >
             <p>
-              {idx + 1} / {images.length}
+              {idx + 1} / {picked.length}
             </p>
 
-            {/* 인디케이터 */}
             <div className="flex gap-1">
-              {images.map((_, i) => (
+              {picked.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => {
@@ -286,7 +310,6 @@ const Gallery = () => {
               ))}
             </div>
 
-            {/* 텍스트 버튼 (사진 밖) */}
             <div className="mt-1 flex gap-4">
               <button
                 onClick={prev}

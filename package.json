@@ -20,7 +20,7 @@
     "sharp": "^0.34.4"
   },
   "scripts": {
-    "images": "node scripts/optimize-images.cjs",
+    "images": "node scripts/optimize-images.cjs && node scripts/generate-gallery-list.cjs",
     "prebuild": "npm run images",
     "start": "react-scripts start",
     "build": "react-scripts build",
