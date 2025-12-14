@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { GALLERY_IMAGES } from "../data/gallery.generated";
 
+/* =========================
+   utils
+========================= */
 function pickRandom<T>(arr: readonly T[], n: number) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -15,7 +18,9 @@ function swapExt(src: string, ext: string) {
   return src.replace(/\.(jpe?g|png)$/i, `.${ext}`);
 }
 
-// .avif/.webp가 없거나 실패하면 img(src)로 자연스럽게 fallback
+/* =========================
+   picture component
+========================= */
 function Picture({
   src,
   alt,
@@ -57,12 +62,16 @@ function Picture({
   );
 }
 
+/* =========================
+   gallery
+========================= */
+const ALL_IMAGES = GALLERY_IMAGES as string[];
+
 const Gallery = () => {
-  // ✅ 랜덤 15개(3x5)만 고정으로 뽑기 (컴포넌트 마운트 동안 유지)
-  const picked = useMemo(() => {
-    const list = pickRandom(GALLERY_IMAGES, 15);
-    return list.map((src, i) => ({
-      id: i + 1,
+  /* 랜덤 15개 (3x5) – 마운트 동안 고정 */
+  const images = useMemo(() => {
+    return pickRandom(ALL_IMAGES, 15).map((src, i) => ({
+      id: i,
       src,
       alt: `우리의 순간 ${i + 1}`,
     }));
@@ -71,17 +80,17 @@ const Gallery = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [idx, setIdx] = useState<number | null>(null);
 
-  // 드래그(스와이프) 상태
+  /* swipe */
   const startXRef = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const dragXRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  // 전환(슬라이드) 애니메이션 상태
+  /* animation */
   const [direction, setDirection] = useState<1 | -1>(1);
   const [isAnimating, setIsAnimating] = useState(false);
-  const t1Ref = useRef<number | null>(null);
-  const t2Ref = useRef<number | null>(null);
+  const t1 = useRef<number | null>(null);
+  const t2 = useRef<number | null>(null);
 
   const openModal = (i: number) => {
     setIdx(i);
@@ -108,16 +117,16 @@ const Gallery = () => {
       setDirection(dir);
       setIsAnimating(true);
 
-      if (t1Ref.current) window.clearTimeout(t1Ref.current);
-      if (t2Ref.current) window.clearTimeout(t2Ref.current);
+      if (t1.current) window.clearTimeout(t1.current);
+      if (t2.current) window.clearTimeout(t2.current);
 
-      t1Ref.current = window.setTimeout(() => {
+      t1.current = window.setTimeout(() => {
         setIdx(nextIndex);
 
-        t2Ref.current = window.setTimeout(() => {
+        t2.current = window.setTimeout(() => {
           setIsAnimating(false);
-          t1Ref.current = null;
-          t2Ref.current = null;
+          t1.current = null;
+          t2.current = null;
         }, 220);
       }, 220);
     },
@@ -127,21 +136,22 @@ const Gallery = () => {
   const prev = useCallback(() => {
     setIdx((p) => {
       const cur = p ?? 0;
-      const nextIndex = (cur - 1 + picked.length) % picked.length;
+      const nextIndex = (cur - 1 + images.length) % images.length;
       goTo(nextIndex, -1);
       return cur;
     });
-  }, [picked.length, goTo]);
+  }, [images.length, goTo]);
 
   const next = useCallback(() => {
     setIdx((p) => {
       const cur = p ?? 0;
-      const nextIndex = (cur + 1) % picked.length;
+      const nextIndex = (cur + 1) % images.length;
       goTo(nextIndex, 1);
       return cur;
     });
-  }, [picked.length, goTo]);
+  }, [images.length, goTo]);
 
+  /* keyboard + scroll lock */
   useEffect(() => {
     if (!isOpen) return;
 
@@ -162,13 +172,15 @@ const Gallery = () => {
     };
   }, [isOpen, closeModal, prev, next]);
 
+  /* cleanup */
   useEffect(() => {
     return () => {
-      if (t1Ref.current) window.clearTimeout(t1Ref.current);
-      if (t2Ref.current) window.clearTimeout(t2Ref.current);
+      if (t1.current) window.clearTimeout(t1.current);
+      if (t2.current) window.clearTimeout(t2.current);
     };
   }, []);
 
+  /* swipe handlers */
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startXRef.current = e.clientX;
     setIsDragging(true);
@@ -178,9 +190,9 @@ const Gallery = () => {
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging || startXRef.current == null) return;
-    const deltaX = e.clientX - startXRef.current;
-    setDragX(deltaX);
-    dragXRef.current = deltaX;
+    const dx = e.clientX - startXRef.current;
+    setDragX(dx);
+    dragXRef.current = dx;
   };
 
   const finishDrag = () => {
@@ -205,15 +217,15 @@ const Gallery = () => {
     <div className="mt-5 mb-10">
       <p className="my-5 text-center text-4xl font-medium">갤러리</p>
 
+      {/* 썸네일 (3 x 5) */}
       <div className="flex justify-center">
         <div className="w-full max-w-[420px]">
-          {/* ✅ 3열로 15개 => 자동으로 5줄 */}
           <div className="grid grid-cols-3 gap-2 p-4">
-            {picked.map((img, i) => (
+            {images.map((img, i) => (
               <button
                 key={img.id}
                 onClick={() => openModal(i)}
-                className="relative overflow-hidden rounded-lg shadow-lg transition-transform duration-200 active:scale-[0.99]"
+                className="relative overflow-hidden rounded-lg shadow-lg active:scale-[0.99]"
                 aria-label={`${img.alt} 크게 보기`}
               >
                 <div className="pt-[100%]" />
@@ -231,7 +243,7 @@ const Gallery = () => {
         </div>
       </div>
 
-      {/* 모달 */}
+      {/* modal */}
       {isOpen && idx !== null && (
         <div
           className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm"
@@ -239,20 +251,20 @@ const Gallery = () => {
           role="dialog"
           aria-modal="true"
         >
-          {/* 상단 닫기 버튼 (사진 밖) */}
-          <div className="flex items-center justify-end px-4 pt-4">
+          {/* close */}
+          <div className="flex justify-end px-4 pt-4">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 closeModal();
               }}
-              className="rounded-full bg-black/70 px-3 py-2 text-xs text-white shadow-lg"
+              className="rounded-full bg-black/70 px-3 py-2 text-xs text-white"
             >
               ✕ 닫기
             </button>
           </div>
 
-          {/* 중앙 이미지 + 스와이프 */}
+          {/* image */}
           <div
             className="flex flex-1 items-center justify-center px-4 pb-4"
             onClick={(e) => e.stopPropagation()}
@@ -274,10 +286,9 @@ const Gallery = () => {
                 }}
               >
                 <Picture
-                  src={picked[idx].src}
-                  alt={picked[idx].alt}
+                  src={images[idx].src}
+                  alt={images[idx].alt}
                   fetchPriority="high"
-                  className="block"
                   imgClassName="w-auto max-h-[80vh] max-w-full select-none rounded-xl shadow-2xl"
                   draggable={false}
                 />
@@ -285,27 +296,27 @@ const Gallery = () => {
             </div>
           </div>
 
-          {/* 하단 컨트롤 */}
+          {/* footer */}
           <div
             className="flex flex-col items-center gap-3 pb-6 pt-2 text-xs text-white/80"
             onClick={(e) => e.stopPropagation()}
           >
             <p>
-              {idx + 1} / {picked.length}
+              {idx + 1} / {images.length}
             </p>
 
             <div className="flex gap-1">
-              {picked.map((_, i) => (
+              {images.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => {
                     if (idx === i) return;
                     goTo(i, i > idx ? 1 : -1);
                   }}
-                  className={`h-2 w-2 rounded-full transition ${
+                  className={`h-2 w-2 rounded-full ${
                     i === idx ? "scale-125 bg-white" : "bg-white/40"
                   }`}
-                  aria-label={`${i + 1}번째 사진으로 이동`}
+                  aria-label={`${i + 1}번째 사진`}
                 />
               ))}
             </div>
@@ -313,13 +324,13 @@ const Gallery = () => {
             <div className="mt-1 flex gap-4">
               <button
                 onClick={prev}
-                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white hover:bg-white/20"
+                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white"
               >
                 이전 사진
               </button>
               <button
                 onClick={next}
-                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white hover:bg-white/20"
+                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white"
               >
                 다음 사진
               </button>
