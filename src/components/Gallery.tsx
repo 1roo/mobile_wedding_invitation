@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type React from "react";
 
 function ImgWithFallback({
   base,
@@ -40,31 +41,75 @@ const Gallery = () => {
   // 드래그(스와이프) 상태
   const startXRef = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
+  const dragXRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
+
+  // 전환(슬라이드) 애니메이션 상태
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const t1Ref = useRef<number | null>(null);
+  const t2Ref = useRef<number | null>(null);
 
   const openModal = (i: number) => {
     setIdx(i);
     setIsOpen(true);
+    setDragX(0);
+    dragXRef.current = 0;
+    startXRef.current = null;
+    setIsDragging(false);
   };
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
     setIdx(null);
+    setDragX(0);
+    dragXRef.current = 0;
+    startXRef.current = null;
+    setIsDragging(false);
   }, []);
+
+  // 전환 함수: 먼저 "나가기" -> idx 교체 -> "들어오기"
+  const goTo = useCallback(
+    (nextIndex: number, dir: 1 | -1) => {
+      if (isAnimating) return;
+
+      setDirection(dir);
+      setIsAnimating(true);
+
+      // 타이머 정리(중복 방지)
+      if (t1Ref.current) window.clearTimeout(t1Ref.current);
+      if (t2Ref.current) window.clearTimeout(t2Ref.current);
+
+      t1Ref.current = window.setTimeout(() => {
+        setIdx(nextIndex);
+
+        t2Ref.current = window.setTimeout(() => {
+          setIsAnimating(false);
+          t1Ref.current = null;
+          t2Ref.current = null;
+        }, 220);
+      }, 220);
+    },
+    [isAnimating]
+  );
 
   const prev = useCallback(() => {
     setIdx((p) => {
-      if (p == null) return 0;
-      return (p - 1 + images.length) % images.length;
+      const cur = p ?? 0;
+      const nextIndex = (cur - 1 + images.length) % images.length;
+      goTo(nextIndex, -1);
+      return cur; // 실제 idx 변경은 goTo가 처리
     });
-  }, [images.length]);
+  }, [images.length, goTo]);
 
   const next = useCallback(() => {
     setIdx((p) => {
-      if (p == null) return 0;
-      return (p + 1) % images.length;
+      const cur = p ?? 0;
+      const nextIndex = (cur + 1) % images.length;
+      goTo(nextIndex, 1);
+      return cur;
     });
-  }, [images.length]);
+  }, [images.length, goTo]);
 
   // 모달 열릴 때 스크롤 잠금 + 키보드 네비
   useEffect(() => {
@@ -87,33 +132,52 @@ const Gallery = () => {
     };
   }, [isOpen, closeModal, prev, next]);
 
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (t1Ref.current) window.clearTimeout(t1Ref.current);
+      if (t2Ref.current) window.clearTimeout(t2Ref.current);
+    };
+  }, []);
+
   // 스와이프 핸들러들
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startXRef.current = e.clientX;
     setIsDragging(true);
     setDragX(0);
+    dragXRef.current = 0;
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging || startXRef.current == null) return;
     const deltaX = e.clientX - startXRef.current;
     setDragX(deltaX);
+    dragXRef.current = deltaX;
   };
 
   const finishDrag = () => {
     if (!isDragging) return;
 
     const threshold = 60; // 이 값 이상 움직이면 페이지 넘김
-    if (dragX > threshold) {
-      prev();
-    } else if (dragX < -threshold) {
-      next();
-    }
+    const dx = dragXRef.current;
 
+    // 드래그 끝나면 원위치
     setIsDragging(false);
     setDragX(0);
+    dragXRef.current = 0;
     startXRef.current = null;
+
+    // 넘김 판단
+    if (dx > threshold) {
+      prev();
+    } else if (dx < -threshold) {
+      next();
+    }
   };
+
+  // 애니메이션 오프셋(px)
+  const animOffset = isAnimating ? (direction === 1 ? -24 : 24) : 0;
+  const opacity = isAnimating ? 0 : 1;
 
   return (
     <div className="mt-5 mb-10">
@@ -170,7 +234,7 @@ const Gallery = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="max-h-[80vh] max-w-full touch-none"
+              className="relative max-h-[80vh] max-w-full overflow-hidden touch-none"
               style={{ touchAction: "pan-y" }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -178,15 +242,21 @@ const Gallery = () => {
               onPointerCancel={finishDrag}
               onPointerLeave={finishDrag}
             >
-              <ImgWithFallback
-                base={images[idx].base}
-                alt={images[idx].alt}
-                fetchPriority="high"
-                className="w-auto max-h-[80vh] max-w-full rounded-xl shadow-2xl transition-transform duration-150"
+              <div
+                className="transition-all duration-200 ease-out"
                 style={{
-                  transform: `translateX(${dragX}px)`,
+                  transform: `translateX(${dragX + animOffset}px)`,
+                  opacity,
                 }}
-              />
+              >
+                <ImgWithFallback
+                  base={images[idx].base}
+                  alt={images[idx].alt}
+                  fetchPriority="high"
+                  className="w-auto max-h-[80vh] max-w-full select-none rounded-xl shadow-2xl"
+                  draggable={false}
+                />
+              </div>
             </div>
           </div>
 
@@ -204,7 +274,10 @@ const Gallery = () => {
               {images.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setIdx(i)}
+                  onClick={() => {
+                    if (idx === i) return;
+                    goTo(i, i > idx ? 1 : -1);
+                  }}
                   className={`h-2 w-2 rounded-full transition ${
                     i === idx ? "scale-125 bg-white" : "bg-white/40"
                   }`}
