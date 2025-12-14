@@ -34,7 +34,8 @@ const Parents = () => {
   const accountInfo = isBride ? brideInfo : groomInfo;
 
   const handleCopy = (name: string, bank: string, number: string) => {
-    navigator.clipboard.writeText(number);
+    const onlyNumber = number.replace(/\D/g, "");
+    navigator.clipboard.writeText(onlyNumber);
     alert("계좌번호가 복사되었습니다.");
   };
 
