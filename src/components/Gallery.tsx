@@ -3,7 +3,8 @@ import type React from "react";
 import { GALLERY_IMAGES } from "../data/gallery.generated";
 
 /* =========================
-   utils
+   utils & Picture Component
+   (기존과 동일)
 ========================= */
 function pickRandom<T>(arr: readonly T[], n: number) {
   const copy = [...arr];
@@ -18,9 +19,6 @@ function swapExt(src: string, ext: string) {
   return src.replace(/\.(jpe?g|png)$/i, `.${ext}`);
 }
 
-/* =========================
-   picture component
-========================= */
 function Picture({
   src,
   alt,
@@ -63,12 +61,11 @@ function Picture({
 }
 
 /* =========================
-   gallery
+   Gallery (Carousel 방식 적용)
 ========================= */
 const ALL_IMAGES = GALLERY_IMAGES as string[];
 
 const Gallery = () => {
-  /* 랜덤 15개 (3x5) – 마운트 동안 고정 */
   const images = useMemo(() => {
     return pickRandom(ALL_IMAGES, 15).map((src, i) => ({
       id: i,
@@ -80,25 +77,21 @@ const Gallery = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [idx, setIdx] = useState<number | null>(null);
 
-  /* swipe */
+  /* Swipe State */
   const startXRef = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const dragXRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  /* animation */
-  const [direction, setDirection] = useState<1 | -1>(1);
+  /* Animation State for smoother transition after drag release */
   const [isAnimating, setIsAnimating] = useState(false);
-  const t1 = useRef<number | null>(null);
-  const t2 = useRef<number | null>(null);
 
   const openModal = (i: number) => {
     setIdx(i);
     setIsOpen(true);
     setDragX(0);
     dragXRef.current = 0;
-    startXRef.current = null;
-    setIsDragging(false);
+    setIsAnimating(false);
   };
 
   const closeModal = useCallback(() => {
@@ -106,55 +99,65 @@ const Gallery = () => {
     setIdx(null);
     setDragX(0);
     dragXRef.current = 0;
-    startXRef.current = null;
-    setIsDragging(false);
+    setIsAnimating(false);
   }, []);
 
-  const goTo = useCallback(
-    (nextIndex: number, dir: 1 | -1) => {
-      if (isAnimating) return;
+  const goTo = useCallback((nextIndex: number) => {
+    setIdx(nextIndex);
+    setDragX(0);
+    dragXRef.current = 0;
+    setIsAnimating(false);
+  }, []);
 
-      setDirection(dir);
+  /* [핵심 변경] 
+    단순히 인덱스만 바꾸는 게 아니라, 
+    드래그가 끝났을 때 "부드럽게 제자리로 돌아오거나 다음 장으로 넘어가는" 
+    애니메이션 처리를 위해 로직을 보강했습니다.
+  */
+  const finishDrag = () => {
+    if (!isDragging) return;
+
+    const threshold = 80; // 이동 감지 임계값
+    const dx = dragXRef.current;
+    const width = window.innerWidth;
+
+    setIsDragging(false);
+    startXRef.current = null;
+
+    if (idx === null) return;
+
+    if (dx > threshold) {
+      // 이전 사진으로 (Prev)
+      const nextIndex = (idx - 1 + images.length) % images.length;
+      goTo(nextIndex);
+    } else if (dx < -threshold) {
+      // 다음 사진으로 (Next)
+      const nextIndex = (idx + 1) % images.length;
+      goTo(nextIndex);
+    } else {
+      // 제자리로 복귀 (Reset)
+      // 이때는 애니메이션을 켜서 부드럽게 0으로 돌아오게 함
       setIsAnimating(true);
-
-      if (t1.current) window.clearTimeout(t1.current);
-      if (t2.current) window.clearTimeout(t2.current);
-
-      t1.current = window.setTimeout(() => {
-        setIdx(nextIndex);
-
-        t2.current = window.setTimeout(() => {
-          setIsAnimating(false);
-          t1.current = null;
-          t2.current = null;
-        }, 220);
-      }, 220);
-    },
-    [isAnimating]
-  );
+      setDragX(0);
+      dragXRef.current = 0;
+      setTimeout(() => setIsAnimating(false), 200);
+    }
+  };
 
   const prev = useCallback(() => {
-    setIdx((p) => {
-      const cur = p ?? 0;
-      const nextIndex = (cur - 1 + images.length) % images.length;
-      goTo(nextIndex, -1);
-      return cur;
-    });
-  }, [images.length, goTo]);
+    if (idx === null) return;
+    const nextIndex = (idx - 1 + images.length) % images.length;
+    goTo(nextIndex);
+  }, [idx, images.length, goTo]);
 
   const next = useCallback(() => {
-    setIdx((p) => {
-      const cur = p ?? 0;
-      const nextIndex = (cur + 1) % images.length;
-      goTo(nextIndex, 1);
-      return cur;
-    });
-  }, [images.length, goTo]);
+    if (idx === null) return;
+    const nextIndex = (idx + 1) % images.length;
+    goTo(nextIndex);
+  }, [idx, images.length, goTo]);
 
-  /* keyboard + scroll lock */
   useEffect(() => {
     if (!isOpen) return;
-
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -163,25 +166,15 @@ const Gallery = () => {
       if (e.key === "ArrowLeft") prev();
       if (e.key === "ArrowRight") next();
     };
-
     window.addEventListener("keydown", onKey);
-
     return () => {
       document.body.style.overflow = original;
       window.removeEventListener("keydown", onKey);
     };
   }, [isOpen, closeModal, prev, next]);
 
-  /* cleanup */
-  useEffect(() => {
-    return () => {
-      if (t1.current) window.clearTimeout(t1.current);
-      if (t2.current) window.clearTimeout(t2.current);
-    };
-  }, []);
-
-  /* swipe handlers */
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsAnimating(false); // 드래그 시작 시 애니메이션 즉시 중단
     startXRef.current = e.clientX;
     setIsDragging(true);
     setDragX(0);
@@ -195,29 +188,31 @@ const Gallery = () => {
     dragXRef.current = dx;
   };
 
-  const finishDrag = () => {
-    if (!isDragging) return;
+  /* [렌더링 로직 변경]
+    현재 인덱스(idx)를 기준으로 좌(-1), 중(0), 우(+1) 3장의 이미지를 계산합니다.
+  */
+  const getDisplayImages = () => {
+    if (idx === null) return [];
+    const count = images.length;
 
-    const threshold = 60;
-    const dx = dragXRef.current;
+    // 인덱스 계산 (음수 방지를 위한 모듈러 연산)
+    const prevIdx = (idx - 1 + count) % count;
+    const nextIdx = (idx + 1) % count;
 
-    setIsDragging(false);
-    setDragX(0);
-    dragXRef.current = 0;
-    startXRef.current = null;
-
-    if (dx > threshold) prev();
-    else if (dx < -threshold) next();
+    return [
+      { ...images[prevIdx], offset: -1, key: `prev-${images[prevIdx].id}` },
+      { ...images[idx], offset: 0, key: `curr-${images[idx].id}` },
+      { ...images[nextIdx], offset: 1, key: `next-${images[nextIdx].id}` },
+    ];
   };
 
-  const animOffset = isAnimating ? (direction === 1 ? -24 : 24) : 0;
-  const opacity = isAnimating ? 0 : 1;
+  const displayImages = getDisplayImages();
 
   return (
     <div className="mt-5 mb-10">
       <p className="my-5 text-center text-4xl font-medium">갤러리</p>
 
-      {/* 썸네일 (3 x 5) */}
+      {/* 썸네일 리스트 */}
       <div className="flex justify-center">
         <div className="w-full max-w-[420px]">
           <div className="grid grid-cols-3 gap-2 p-4">
@@ -243,62 +238,70 @@ const Gallery = () => {
         </div>
       </div>
 
-      {/* modal */}
+      {/* Modal */}
       {isOpen && idx !== null && (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-md"
           onClick={closeModal}
           role="dialog"
           aria-modal="true"
         >
-          {/* close */}
-          <div className="flex justify-end px-4 pt-4">
+          {/* Close Button */}
+          <div className="flex justify-end px-4 pt-4 z-10">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 closeModal();
               }}
-              className="rounded-full bg-black/70 px-3 py-2 text-xs text-white"
+              className="rounded-full bg-black/50 px-3 py-2 text-xs text-white border border-white/10"
             >
               ✕ 닫기
             </button>
           </div>
 
-          {/* image */}
+          {/* Slider Container */}
           <div
-            className="flex flex-1 items-center justify-center px-4 pb-4"
+            className="relative flex-1 w-full h-full overflow-hidden touch-none"
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
+            onPointerLeave={finishDrag}
           >
-            <div
-              className="relative max-h-[80vh] max-w-full overflow-hidden touch-none"
-              style={{ touchAction: "pan-y" }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={finishDrag}
-              onPointerCancel={finishDrag}
-              onPointerLeave={finishDrag}
-            >
+            {/* 3장의 이미지를 렌더링하지만, 
+               유저는 중앙(offset 0)을 보고 있고, 
+               드래그(dragX)에 따라 전체가 좌우로 움직입니다.
+            */}
+            {displayImages.map((item) => (
               <div
-                className="transition-all duration-200 ease-out"
+                key={item.key}
+                className="absolute top-0 flex h-full w-full items-center justify-center p-4 transition-transform duration-0"
                 style={{
-                  transform: `translateX(${dragX + animOffset}px)`,
-                  opacity,
+                  // 기본 위치(offset * 100%) + 드래그 이동값(dragX)
+                  // isAnimating이 true일 때만 transition을 적용하여 부드럽게 복귀
+                  transform: `translateX(calc(${
+                    item.offset * 100
+                  }% + ${dragX}px))`,
+                  transition: isAnimating ? "transform 0.2s ease-out" : "none",
                 }}
               >
-                <Picture
-                  src={images[idx].src}
-                  alt={images[idx].alt}
-                  fetchPriority="high"
-                  imgClassName="w-auto max-h-[80vh] max-w-full select-none rounded-xl shadow-2xl"
-                  draggable={false}
-                />
+                <div className="relative max-h-[80vh] max-w-full shadow-2xl">
+                  <Picture
+                    src={item.src}
+                    alt={item.alt}
+                    fetchPriority={item.offset === 0 ? "high" : "low"}
+                    imgClassName="w-auto max-h-[80vh] max-w-full rounded-xl select-none"
+                    draggable={false}
+                  />
+                </div>
               </div>
-            </div>
+            ))}
           </div>
 
-          {/* footer */}
+          {/* Footer */}
           <div
-            className="flex flex-col items-center gap-3 pb-6 pt-2 text-xs text-white/80"
+            className="flex flex-col items-center gap-3 pb-8 pt-2 text-xs text-white/80 z-10"
             onClick={(e) => e.stopPropagation()}
           >
             <p>
@@ -311,29 +314,13 @@ const Gallery = () => {
                   key={i}
                   onClick={() => {
                     if (idx === i) return;
-                    goTo(i, i > idx ? 1 : -1);
+                    goTo(i);
                   }}
-                  className={`h-2 w-2 rounded-full ${
+                  className={`h-1.5 w-1.5 rounded-full transition-all ${
                     i === idx ? "scale-125 bg-white" : "bg-white/40"
                   }`}
-                  aria-label={`${i + 1}번째 사진`}
                 />
               ))}
-            </div>
-
-            <div className="mt-1 flex gap-4">
-              <button
-                onClick={prev}
-                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white"
-              >
-                이전 사진
-              </button>
-              <button
-                onClick={next}
-                className="rounded-full bg-white/10 px-4 py-1 text-xs text-white"
-              >
-                다음 사진
-              </button>
             </div>
           </div>
         </div>
