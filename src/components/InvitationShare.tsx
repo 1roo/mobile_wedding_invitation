@@ -47,7 +47,7 @@ const InvitationShare = () => {
         />
       </div>
       <div className="h-40 bg-[#282828] text-white flex flex-col items-center justify-center">
-        <p className="mb-8">당신은 내가 더 좋은 사람이고 싶게 만들어요.</p>
+        <p className="mb-8">당신은 내가 더 좋은 사람이 되고 싶게 만들어요.</p>
         <p>- 영화 '이보다 더 좋을 순 없다' 중</p>
       </div>
       <div className="h-[200px] flex flex-col justify-center items-center">

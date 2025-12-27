@@ -27,7 +27,7 @@ const Parents = () => {
     daddyBank: "NH농협은행",
     daddyBankNumber: process.env.REACT_APP_BRIDE_DAD_BANK as string,
     mommyName: "김인숙",
-    mommyBank: "SC제일은행",
+    mommyBank: "NH농협은행",
     mommyBankNumber: process.env.REACT_APP_BRIDE_MOM_BANK as string,
   };
 
