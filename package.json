@@ -15,9 +15,10 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-scripts": "5.0.1",
+    "react-zoom-pan-pinch": "^3.7.0",
+    "sharp": "^0.34.4",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4",
-    "sharp": "^0.34.4"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "images": "node scripts/optimize-images.cjs && node scripts/generate-gallery-list.cjs",
