@@ -1,8 +1,8 @@
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy } from "lucide-react";
 import KakaoShareButton from "./KakaoShareButton";
 
 const InvitationShare = () => {
-  const urlToShare = window.location.href;
+  const urlToShare = "https://www.narupil.co.kr/reception";
 
   const handleKakaoShare = () => {
     if (window.Kakao) {
@@ -46,16 +46,18 @@ const InvitationShare = () => {
           className="mx-auto"
         />
       </div>
+
       <div className="h-40 bg-[#282828] text-white flex flex-col items-center justify-center">
         <p className="mb-8">당신은 내가 더 좋은 사람이 되고 싶게 만들어요.</p>
         <p>- 영화 '이보다 더 좋을 순 없다' 중</p>
       </div>
+
       <div className="h-[200px] flex flex-col justify-center items-center">
         <KakaoShareButton handleKakaoShare={handleKakaoShare} />
 
         <button
           onClick={handleCopy}
-          className="w-52 flex items-center justify-center bg-gray-400 hover:bg-gray-500  text-white px-4 py-2 rounded font-mediumhover:opacity-90"
+          className="w-52 flex items-center justify-center bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-medium"
         >
           청첩장 주소 복사하기
           <Copy size={16} className="ml-2" />
